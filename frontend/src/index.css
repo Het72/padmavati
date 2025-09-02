@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+:root {
+  /* Padmavati brand palette extracted from logo */
+  --padma-cream: #fff6dd; /* warm ivory background */
+  --padma-cream-strong: #f3e6bb; /* deeper cream accents */
+  --padma-navy: #1f2a44; /* deep navy text/primary */
+  --padma-navy-600: #253150; /* hover */
+  --padma-accent: #2b3b6c; /* secondary/nav hover */
+}
+
+body {
+  background-color: var(--padma-cream);
+}
+
+/* Utility classes bridging Tailwind + MUI custom needs */
+.text-padma {
+  color: var(--padma-navy);
+}
+
+.bg-padma-cream {
+  background-color: var(--padma-cream);
+}
+
+.bg-padma-cream-strong {
+  background-color: var(--padma-cream-strong);
+}
+
+.bg-padma-navy {
+  background-color: var(--padma-navy);
+}
+
+.hover\:bg-padma-navy-600:hover {
+  background-color: var(--padma-navy-600);
+}
