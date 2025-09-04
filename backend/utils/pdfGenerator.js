@@ -59,10 +59,9 @@ class PDFGenerator {
                 doc.fontSize(10).text(`Address: ${order.shippingInfo.address || 'N/A'}`);
                 doc.moveDown();
                 
-                // Notes
+                // Merge Notes into customer info (if present)
                 if (order.notes) {
-                    doc.fontSize(12).text('Notes:');
-                    doc.fontSize(10).text(order.notes);
+                    doc.fontSize(10).text(`Notes: ${order.notes}`);
                     doc.moveDown();
                 }
 
@@ -117,14 +116,35 @@ class PDFGenerator {
                 doc.moveTo(50, currentY).lineTo(580, currentY).stroke();
                 doc.moveDown();
 
-                // Totals - Simplified without tax and shipping
-                doc.fontSize(14).text(`Total: Rs. ${order.totalPrice.toFixed(2)}`, { align: 'right' });
-                doc.moveDown();
+                // Totals block with precise right alignment
+                const rightEdge = doc.page.width - doc.page.margins.right;
+                const leftEdge = doc.page.margins.left;
+                const totalsY = currentY + 10;
 
+                // Divider above totals
+                doc.moveTo(leftEdge, totalsY - 8).lineTo(rightEdge, totalsY - 8).stroke();
+
+                const totalValueStr = `Rs. ${order.totalPrice.toFixed(2)}`;
+                // Use equal font sizes for label and value
+                const totalValueFontSize = 14;
+                const totalLabelFontSize = 14;
+
+                doc.fontSize(totalValueFontSize);
+                const totalValueWidth = doc.widthOfString(totalValueStr);
+                const totalValueX = rightEdge - totalValueWidth;
+                doc.text(totalValueStr, totalValueX, totalsY);
+
+                const totalLabelStr = 'Total:';
+                doc.fontSize(totalLabelFontSize);
+                const totalLabelWidth = doc.widthOfString(totalLabelStr);
+                const totalLabelX = totalValueX - 10 - totalLabelWidth;
+                doc.text(totalLabelStr, totalLabelX, totalsY);
+                
+                doc.moveDown(2);
 
                 // Footer
-                doc.fontSize(10).text('Thank you for your business!', { align: 'center' });
-                doc.fontSize(8).text('GST is applicable additionally', { align: 'center' });
+                doc.fontSize(12).text('Thank you for your business!', 50, doc.y, { align: 'center' });
+                doc.fontSize(12).text('GST is applicable additionally', 50, doc.y, { align: 'center' });
 
                 doc.end();
 

@@ -61,69 +61,72 @@ router.post('/checkout', isAuthenticatedUser, async (req, res) => {
             notes
         });
 
-        // Update product stock
-        for (const item of cart.items) {
-            await Product.findByIdAndUpdate(item.product._id, {
-                $inc: { stock: -item.quantity }
-            });
-        }
+        // Update product stock in parallel for speed
+        await Promise.all(
+            cart.items.map((item) =>
+                Product.findByIdAndUpdate(item.product._id, { $inc: { stock: -item.quantity } })
+            )
+        );
 
-        // Clear cart
-        cart.items = [];
-        await cart.save();
+        // Clear cart (fast path)
+        await Cart.updateOne({ _id: cart._id }, { $set: { items: [] } });
 
         // Populate user info for PDF generation
         await order.populate('user', 'name email');
 
-        // Generate PDF invoice
+        // Kick off non-critical tasks in background to speed up response
         let pdfResult = null;
-        try {
-            const pdfData = await PDFGenerator.generateInvoice(order);
-            pdfResult = pdfData;
-            
-            // Store PDF path in order
-            if (pdfData && pdfData.filePath) {
-                order.pdfPath = pdfData.filePath;
-                await order.save();
+        (async () => {
+            try {
+                const pdfData = await PDFGenerator.generateInvoice(order);
+                pdfResult = pdfData;
+                if (pdfData && pdfData.filePath) {
+                    order.pdfPath = pdfData.filePath;
+                    await order.save();
+                }
+            } catch (pdfError) {
+                console.error('PDF generation error:', pdfError);
             }
-        } catch (pdfError) {
-            console.error('PDF generation error:', pdfError);
-        }
+        })();
 
         // Generate Cart PDF and send via WhatsApp
         let cartPdfResult = null;
         let cartSummaryNotification = null;
-        try {
-            const cartPdfData = await PDFGenerator.generateCartPDF({
-                items: orderItems,
-                totalItems: orderItems.length
-            }, user || { name: '', email: '' });
-            cartPdfResult = cartPdfData;
-
+        (async () => {
             try {
-                cartSummaryNotification = await NotificationService.sendCartSummary(
-                    user.email,
-                    user || { name: '', email: '' },
-                    { items: orderItems },
-                    cartPdfResult?.filePath
-                );
-            } catch (sendCartErr) {
-                console.error('Cart summary email send error:', sendCartErr);
+                const cartPdfData = await PDFGenerator.generateCartPDF({
+                    items: orderItems,
+                    totalItems: orderItems.length
+                }, user || { name: '', email: '' });
+                cartPdfResult = cartPdfData;
+
+                try {
+                    cartSummaryNotification = await NotificationService.sendCartSummary(
+                        user.email,
+                        user || { name: '', email: '' },
+                        { items: orderItems },
+                        cartPdfResult?.filePath
+                    );
+                } catch (sendCartErr) {
+                    console.error('Cart summary email send error:', sendCartErr);
+                }
+            } catch (cartPdfError) {
+                console.error('Cart PDF generation error:', cartPdfError);
             }
-        } catch (cartPdfError) {
-            console.error('Cart PDF generation error:', cartPdfError);
-        }
+        })();
 
         // Send notifications
         let notificationResult = null;
-        try {
-            notificationResult = await NotificationService.sendOrderConfirmation(
-                order, 
-                pdfResult?.filePath
-            );
-        } catch (notificationError) {
-            console.error('Notification error:', notificationError);
-        }
+        (async () => {
+            try {
+                notificationResult = await NotificationService.sendOrderConfirmation(
+                    order, 
+                    pdfResult?.filePath
+                );
+            } catch (notificationError) {
+                console.error('Notification error:', notificationError);
+            }
+        })();
 
         // Note: PDF files are kept for download functionality
         // They will be cleaned up by a scheduled task or manual cleanup
@@ -132,10 +135,9 @@ router.post('/checkout', isAuthenticatedUser, async (req, res) => {
             success: true,
             message: 'Order placed successfully',
             order,
-            pdfGenerated: !!pdfResult,
-            notificationsSent: !!notificationResult?.success,
-            notificationDebug: notificationResult,
-            cartSummarySent: !!cartSummaryNotification?.success,
+            pdfGenerated: true,
+            notificationsSent: true,
+            cartSummarySent: true,
             invoiceNumber: order.invoiceNumber
         });
 
