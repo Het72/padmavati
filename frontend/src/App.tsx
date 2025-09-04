@@ -1,18 +1,20 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { Suspense, lazy } from 'react';
 import Navbar from './components/Navbar';
-import Home from './pages/Home';
-import Products from './pages/Products';
-import Cart from './pages/Cart';
-import AddProduct from './pages/AddProduct';
-import EditProduct from './pages/EditProduct';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminSetup from './pages/AdminSetup';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Profile from './pages/Profile';
-import Orders from './pages/Orders';
+// Route-level code splitting
+const Home = lazy(() => import('./pages/Home'));
+const Products = lazy(() => import('./pages/Products'));
+const Cart = lazy(() => import('./pages/Cart'));
+const AddProduct = lazy(() => import('./pages/AddProduct'));
+const EditProduct = lazy(() => import('./pages/EditProduct'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminSetup = lazy(() => import('./pages/AdminSetup'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Orders = lazy(() => import('./pages/Orders'));
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 
@@ -48,7 +50,8 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <Router>
-            <Routes>
+            <Suspense fallback={<div style={{ padding: 24 }}>Loading...</div>}>
+              <Routes>
               {/* Standalone Auth Pages - No Navbar */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
@@ -72,7 +75,8 @@ function App() {
                   </main>
                 </div>
               } />
-            </Routes>
+              </Routes>
+            </Suspense>
           </Router>
         </CartProvider>
       </AuthProvider>
