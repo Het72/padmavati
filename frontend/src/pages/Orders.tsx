@@ -271,7 +271,7 @@ const Orders: React.FC = () => {
       }
 
       // Create a temporary link to download the PDF
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/pdf`, {
+      const response = await fetch(` https://padmavati-backend.onrender.com/api/orders/${orderId}/pdf`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
