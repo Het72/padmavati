@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const { isAuthenticatedUser, authorizeRoles } = require('../middleware/auth');
 const { uploadSingleImage, uploadMultipleImages } = require('../middleware/upload');
 const { cleanupOldImages } = require('../utils/imageUtils');
+const multer = require('multer');
 const path = require('path');
 
 // GET /products - Fetch all products
@@ -64,7 +65,32 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /products (Admin) - Add a new product with image
-router.post('/', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleImage, async (req, res) => {
+router.post('/', isAuthenticatedUser, authorizeRoles('admin'), (req, res, next) => {
+    uploadSingleImage(req, res, (err) => {
+        if (err) {
+            console.error('Upload error:', err);
+            if (err instanceof multer.MulterError) {
+                if (err.code === 'LIMIT_FILE_SIZE') {
+                    return res.status(400).json({ 
+                        success: false,
+                        message: 'File too large. Maximum size is 20MB' 
+                    });
+                }
+                if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+                    return res.status(400).json({ 
+                        success: false,
+                        message: 'Unexpected field name in file upload' 
+                    });
+                }
+            }
+            return res.status(400).json({ 
+                success: false,
+                message: 'File upload error: ' + err.message 
+            });
+        }
+        next();
+    });
+}, async (req, res) => {
     try {
         let productData = { ...req.body };
         
@@ -90,6 +116,7 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleImage
             }];
         }
         
+        console.log('Creating product with data:', productData);
         const product = await Product.create(productData);
         
         res.status(201).json({
@@ -98,6 +125,7 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleImage
             product
         });
     } catch (error) {
+        console.error('Error creating product:', error);
         res.status(400).json({
             success: false,
             message: 'Error creating product',

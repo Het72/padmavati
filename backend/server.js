@@ -3,12 +3,27 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const path = require("path");
+const fs = require("fs");
 const multer = require("multer");
 const config = require("./config/config");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+const productsDir = path.join(uploadsDir, 'products');
+
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('Created uploads directory');
+}
+
+if (!fs.existsSync(productsDir)) {
+    fs.mkdirSync(productsDir, { recursive: true });
+    console.log('Created uploads/products directory');
+}
 
 // Middleware
 app.use(cors());
@@ -53,14 +68,16 @@ app.get('/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error('Error occurred:', err);
+    console.error('Error stack:', err.stack);
     
     // Handle multer errors specifically
     if (err instanceof multer.MulterError) {
+        console.error('Multer error:', err.code, err.message);
         if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({ 
                 success: false,
-                message: 'File too large. Maximum size is 5MB' 
+                message: 'File too large. Maximum size is 20MB' 
             });
         }
         if (err.code === 'LIMIT_FILE_COUNT') {
@@ -75,6 +92,12 @@ app.use((err, req, res, next) => {
                 message: 'Unexpected field name in file upload' 
             });
         }
+        if (err.code === 'ENOENT') {
+            return res.status(500).json({ 
+                success: false,
+                message: 'Upload directory not found. Please contact administrator.' 
+            });
+        }
     }
     
     // Handle other file upload errors
@@ -85,9 +108,18 @@ app.use((err, req, res, next) => {
         });
     }
     
+    // Handle filesystem errors
+    if (err.code === 'ENOENT') {
+        return res.status(500).json({ 
+            success: false,
+            message: 'File system error. Please contact administrator.' 
+        });
+    }
+    
     res.status(500).json({ 
         success: false,
-        message: 'Something went wrong!' 
+        message: 'Something went wrong!',
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
     });
 });
 
