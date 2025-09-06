@@ -1,0 +1,17 @@
+# Render configuration for React SPA
+# This file tells Render to serve index.html for all routes
+
+# Build command
+build: npm run build
+
+# Start command  
+start: npm run preview
+
+# Static site configuration
+static: true
+
+# Redirect all routes to index.html for client-side routing
+redirects:
+  - from: /*
+    to: /index.html
+    status: 200
