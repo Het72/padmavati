@@ -5,6 +5,7 @@ const API_BASE_URL = ' https://padmavati-backend.onrender.com/api';
 // Create axios instance with base configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 15000, // 15 second timeout
   headers: {
     'Content-Type': 'application/json',
   },
@@ -31,6 +32,17 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle network errors
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        error.message = 'Request timeout. Please check your internet connection.';
+      } else if (error.message === 'Network Error') {
+        error.message = 'Network error. Please check your internet connection.';
+      } else {
+        error.message = 'Unable to connect to server. Please try again later.';
+      }
+    }
+    
     // Only handle 401 errors for authentication-related endpoints
     const url = error.config?.url || '';
     const isAuthEndpoint = url.includes('/users/profile/me') || url.includes('/users/') && !url.includes('/users/login') && !url.includes('/users/admin');

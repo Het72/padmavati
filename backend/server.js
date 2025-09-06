@@ -30,8 +30,19 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve static files from uploads directory with caching headers
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    maxAge: '1y', // Cache for 1 year
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, path) => {
+        // Set appropriate headers for different file types
+        if (path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.png') || path.endsWith('.gif') || path.endsWith('.webp')) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year
+            res.setHeader('Content-Type', 'image/jpeg'); // Default to JPEG
+        }
+    }
+}));
 
 // Database connection
 if (process.env.MONGODB_URI) {

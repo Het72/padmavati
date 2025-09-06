@@ -32,26 +32,43 @@ const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
 
-  // Fetch products from backend
+  // Fetch products from backend with optimized loading
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setIsLoading(true);
+        setError(null);
+        
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
         const response = await productAPI.getAll();
-        const backendProducts = response.data.products.map((product: any) => ({
-          id: product._id,
-          name: product.name,
-          price: product.price,
-          image: product.images?.[0]?.url || 'https://via.placeholder.com/400x300?text=No+Image',
-          description: product.description,
-          category: product.category,
-          stock: product.stock !== undefined && product.stock !== null ? product.stock : 1,
-        }));
-        setProducts(backendProducts);
+        clearTimeout(timeoutId);
+        
+        if (response.data && response.data.products) {
+          const backendProducts = response.data.products.map((product: any) => ({
+            id: product._id,
+            name: product.name,
+            price: product.price,
+            image: product.images?.[0]?.url || 'https://via.placeholder.com/400x300?text=No+Image',
+            description: product.description,
+            category: product.category,
+            stock: product.stock !== undefined && product.stock !== null ? product.stock : 1,
+          }));
+          setProducts(backendProducts);
+        } else {
+          throw new Error('Invalid response format');
+        }
       } catch (error: any) {
+        console.error('Error fetching products:', error);
         setError(error.message || 'Failed to fetch products');
+        
         // Fallback to hardcoded products if backend fails
         setProducts([
           {
@@ -322,6 +339,25 @@ const Products: React.FC = () => {
         </Box>
       )}
 
+      {/* Loading Skeleton */}
+      {isLoading && (
+        <Box className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, index) => (
+            <Card key={index} className="h-full">
+              <Box sx={{ height: 200, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress size={40} sx={{ color: '#fff' }} />
+              </Box>
+              <CardContent>
+                <Box sx={{ height: 20, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, mb: 2 }} />
+                <Box sx={{ height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, mb: 1, width: '60%' }} />
+                <Box sx={{ height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, mb: 2, width: '40%' }} />
+                <Box sx={{ height: 40, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1 }} />
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      )}
+
       {/* Error State */}
       {error && !isLoading && (
         <Box className="text-center py-16">
@@ -386,6 +422,14 @@ const Products: React.FC = () => {
                 image={product.image}
                 alt={product.name}
                 className="object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Image+Not+Available';
+                }}
+                style={{
+                  transition: 'opacity 0.3s ease',
+                  opacity: 1
+                }}
               />
               <CardContent className="flex-grow">
                 <Box className="mb-2">
