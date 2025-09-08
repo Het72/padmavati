@@ -19,6 +19,23 @@ const resolvedUploadsDir = (config.UPLOADS_DIR && config.UPLOADS_DIR.trim().leng
 const uploadsDir = resolvedUploadsDir;
 const productsDir = path.join(uploadsDir, 'products');
 
+// Prepare an in-memory placeholder image (PNG) to serve for missing files
+let placeholderImageBuffer = null;
+const buildPlaceholder = async () => {
+    try {
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#f3f4f6"/>
+  <text x="50%" y="50%" font-size="28" text-anchor="middle" fill="#6b7280" dy=".3em">Image Not Available</text>
+  <text x="50%" y="70%" font-size="16" text-anchor="middle" fill="#9ca3af" dy=".3em">/uploads/products/:filename</text>
+</svg>`;
+        placeholderImageBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
+    } catch (e) {
+        placeholderImageBuffer = null;
+    }
+};
+buildPlaceholder();
+
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
     console.log('Created uploads directory');
@@ -54,15 +71,19 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Fallback for missing product images: redirect to placeholder (placed BEFORE static)
+// Fallback for missing product images: serve local placeholder (placed BEFORE static)
 app.get('/uploads/products/:filename', (req, res, next) => {
     try {
         const requestedFile = path.join(productsDir, req.params.filename);
         if (fs.existsSync(requestedFile)) {
             return res.sendFile(requestedFile);
         }
-        const placeholder = config.PLACEHOLDER_IMAGE_URL || 'https://via.placeholder.com/600x600?text=No+Image';
-        return res.redirect(302, placeholder);
+        if (placeholderImageBuffer) {
+            res.setHeader('Content-Type', 'image/png');
+            res.setHeader('Cache-Control', 'public, max-age=300');
+            return res.status(200).send(placeholderImageBuffer);
+        }
+        return res.status(404).end();
     } catch (e) {
         return next();
     }
