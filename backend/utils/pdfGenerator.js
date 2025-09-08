@@ -212,9 +212,9 @@ class PDFGenerator {
                 doc.moveDown();
                 
                 // Company Info
-                doc.fontSize(12).text('Padmavati Store', { align: 'center' });
-                doc.fontSize(10).text('E10, Global Market', { align: 'center' });
-                doc.fontSize(10).text('Surat, Gujarat 395001', { align: 'center' });
+                doc.fontSize(12).text('Padmavati Croptop Manufacturers', { align: 'center' });
+                doc.fontSize(10).text('E310, Ground Floor, Global Textile Market', { align: 'center' });
+                doc.fontSize(10).text('Surat, Gujarat 395010', { align: 'center' });
                 doc.fontSize(10).text('Phone: +91 9104052511', { align: 'center' });
                 doc.moveDown();
 
