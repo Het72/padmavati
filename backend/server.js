@@ -6,6 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const config = require("./config/config");
+const sharp = require("sharp");
 require("dotenv").config();
 
 const app = express();
@@ -28,10 +29,44 @@ if (!fs.existsSync(productsDir)) {
     console.log('Created uploads/products directory');
 }
 
+// Seed a sample image into productsDir if it's empty (useful on fresh persistent disks)
+try {
+    const currentFiles = fs.existsSync(productsDir) ? fs.readdirSync(productsDir) : [];
+    if (!currentFiles || currentFiles.length === 0) {
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="600" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#f3f4f6"/>
+  <text x="50%" y="50%" font-size="36" text-anchor="middle" fill="#6b7280" dy=".3em">Sample Product Image</text>
+</svg>`;
+        const outputFile = path.join(productsDir, `sample-${Date.now()}.png`);
+        sharp(Buffer.from(svg))
+            .png()
+            .toFile(outputFile)
+            .then(() => console.log(`Seeded sample image: ${outputFile}`))
+            .catch((err) => console.warn('Failed to seed sample image:', err.message));
+    }
+} catch (seedErr) {
+    console.warn('Error checking/seeding uploads/products:', seedErr.message);
+}
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Fallback for missing product images: redirect to placeholder (placed BEFORE static)
+app.get('/uploads/products/:filename', (req, res, next) => {
+    try {
+        const requestedFile = path.join(productsDir, req.params.filename);
+        if (fs.existsSync(requestedFile)) {
+            return res.sendFile(requestedFile);
+        }
+        const placeholder = config.PLACEHOLDER_IMAGE_URL || 'https://via.placeholder.com/600x600?text=No+Image';
+        return res.redirect(302, placeholder);
+    } catch (e) {
+        return next();
+    }
+});
 
 // Serve static files from uploads directory with caching headers
 app.use('/uploads', express.static(uploadsDir, {

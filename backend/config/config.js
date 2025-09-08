@@ -8,6 +8,8 @@ module.exports = {
     BACKEND_URL: process.env.BACKEND_URL || '',
     // Uploads directory (supports persistent disks in hosting)
     UPLOADS_DIR: process.env.UPLOADS_DIR || '',
+    // Placeholder image for missing product images
+    PLACEHOLDER_IMAGE_URL: process.env.PLACEHOLDER_IMAGE_URL || 'https://via.placeholder.com/600x600?text=No+Image',
     // Email Configuration
     EMAIL_SERVICE: process.env.EMAIL_SERVICE || 'mailtrap',
     // Gmail Configuration
