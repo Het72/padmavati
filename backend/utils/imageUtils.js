@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const config = require('../config/config');
 
 // Validate image file type
 const isValidImageType = (mimetype) => {
@@ -25,7 +26,10 @@ const generateUniqueFilename = (originalname) => {
 // Delete image file from filesystem
 const deleteImageFile = (filename) => {
     try {
-        const filepath = path.join(__dirname, '../uploads/products', filename);
+        const baseUploadsDir = (config.UPLOADS_DIR && config.UPLOADS_DIR.trim().length > 0)
+            ? config.UPLOADS_DIR
+            : path.join(__dirname, '..', 'uploads');
+        const filepath = path.join(baseUploadsDir, 'products', filename);
         if (fs.existsSync(filepath)) {
             fs.unlinkSync(filepath);
             return true;

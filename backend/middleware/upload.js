@@ -1,9 +1,12 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const config = require('../config/config');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+// Ensure uploads directory exists (support persistent disk path)
+const uploadsDir = (config.UPLOADS_DIR && config.UPLOADS_DIR.trim().length > 0)
+    ? config.UPLOADS_DIR
+    : path.join(__dirname, '..', 'uploads');
 const productsDir = path.join(uploadsDir, 'products');
 
 if (!fs.existsSync(uploadsDir)) {

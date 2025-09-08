@@ -11,8 +11,11 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
+// Resolve uploads directory (support persistent disk via env/config)
+const resolvedUploadsDir = (config.UPLOADS_DIR && config.UPLOADS_DIR.trim().length > 0)
+    ? config.UPLOADS_DIR
+    : path.join(__dirname, 'uploads');
+const uploadsDir = resolvedUploadsDir;
 const productsDir = path.join(uploadsDir, 'products');
 
 if (!fs.existsSync(uploadsDir)) {
@@ -31,7 +34,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Serve static files from uploads directory with caching headers
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+app.use('/uploads', express.static(uploadsDir, {
     maxAge: '1y', // Cache for 1 year
     etag: true,
     lastModified: true,
@@ -39,7 +42,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
         // Set appropriate headers for different file types
         if (path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.png') || path.endsWith('.gif') || path.endsWith('.webp')) {
             res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year
-            res.setHeader('Content-Type', 'image/jpeg'); // Default to JPEG
         }
     }
 }));
@@ -65,6 +67,21 @@ app.use('/api/users', require('./routes/users'));
 // Basic route
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to the Website Backend API' });
+});
+
+// Diagnostic: list uploaded product images
+app.get('/debug/uploads/products', (req, res) => {
+    try {
+        const files = fs.existsSync(productsDir) ? fs.readdirSync(productsDir) : [];
+        res.json({
+            success: true,
+            directory: productsDir,
+            count: files.length,
+            files
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Error reading uploads', error: err.message });
+    }
 });
 
 // Health check endpoint

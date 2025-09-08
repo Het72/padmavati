@@ -4,6 +4,10 @@ module.exports = {
     JWT_SECRET: process.env.JWT_SECRET || 'your_jwt_secret_key_here_change_in_production',
     JWT_EXPIRE: process.env.JWT_EXPIRE || '7d',
     DEFAULT_COUNTRY_CODE: process.env.DEFAULT_COUNTRY_CODE || '91',
+    // Base URL for constructing absolute asset URLs
+    BACKEND_URL: process.env.BACKEND_URL || '',
+    // Uploads directory (supports persistent disks in hosting)
+    UPLOADS_DIR: process.env.UPLOADS_DIR || '',
     // Email Configuration
     EMAIL_SERVICE: process.env.EMAIL_SERVICE || 'mailtrap',
     // Gmail Configuration
