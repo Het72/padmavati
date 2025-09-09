@@ -55,6 +55,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Trust proxy for proper HTTPS detection (for hosting platforms like Render, Heroku)
+app.set('trust proxy', 1);
+
 
 // Serve static files from uploads directory with caching headers
 app.use('/uploads', express.static(uploadsDir, {

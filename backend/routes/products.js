@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const { isAuthenticatedUser, authorizeRoles } = require('../middleware/auth');
 const { uploadSingleImage, uploadMultipleImages } = require('../middleware/upload');
 const { cleanupOldImages } = require('../utils/imageUtils');
+const { getImageUrl } = require('../utils/urlHelper');
 const multer = require('multer');
 const path = require('path');
 
@@ -109,9 +110,7 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), (req, res, next) 
         
         // If image was uploaded, add image information
         if (req.file) {
-            // Use environment variable for base URL or construct from request
-            const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
-            const imageUrl = `${baseUrl}/uploads/products/${req.file.filename}`;
+            const imageUrl = getImageUrl(req, req.file.filename);
             productData.images = [{
                 public_id: req.file.filename,
                 url: imageUrl
@@ -156,10 +155,9 @@ router.post('/upload-images/:id', isAuthenticatedUser, authorizeRoles('admin'), 
         }
 
         // Add new images to existing images array
-        const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
         const newImages = req.files.map(file => ({
             public_id: file.filename,
-            url: `${baseUrl}/uploads/products/${file.filename}`
+            url: getImageUrl(req, file.filename)
         }));
 
         product.images = [...product.images, ...newImages];
@@ -200,8 +198,7 @@ router.put('/:id', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleIma
                 await cleanupOldImages(product.images);
             }
             
-            const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
-            const imageUrl = `${baseUrl}/uploads/products/${req.file.filename}`;
+            const imageUrl = getImageUrl(req, req.file.filename);
             updateData.images = [{
                 public_id: req.file.filename,
                 url: imageUrl
