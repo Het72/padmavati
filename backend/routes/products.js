@@ -2,10 +2,31 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { isAuthenticatedUser, authorizeRoles } = require('../middleware/auth');
-const { uploadSingleImage, uploadMultipleImages } = require('../middleware/cloudinaryUpload');
 const { cleanupOldImages } = require('../utils/imageUtils');
+const { getImageUrl } = require('../utils/urlHelper');
 const multer = require('multer');
 const path = require('path');
+
+// Choose upload middleware based on environment
+let uploadSingleImage, uploadMultipleImages;
+
+try {
+    // Try to use Cloudinary if environment variables are set
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+        const cloudinaryUpload = require('../middleware/cloudinaryUpload');
+        uploadSingleImage = cloudinaryUpload.uploadSingleImage;
+        uploadMultipleImages = cloudinaryUpload.uploadMultipleImages;
+        console.log('✅ Using Cloudinary upload middleware');
+    } else {
+        throw new Error('Cloudinary not configured');
+    }
+} catch (error) {
+    // Fallback to local storage
+    const localUpload = require('../middleware/upload');
+    uploadSingleImage = localUpload.uploadSingleImage;
+    uploadMultipleImages = localUpload.uploadMultipleImages;
+    console.log('⚠️  Using local upload middleware (Cloudinary not configured)');
+}
 
 // GET /products - Fetch all products
 router.get('/', async (req, res) => {
@@ -97,6 +118,15 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), (req, res, next) 
         // Add the authenticated user as the product creator
         productData.user = req.user.id;
         
+        console.log('Product creation request:', {
+            body: req.body,
+            file: req.file ? {
+                filename: req.file.filename,
+                mimetype: req.file.mimetype,
+                size: req.file.size
+            } : 'No file'
+        });
+        
         // Ensure stock is a number
         if (productData.stock) {
             productData.stock = parseInt(productData.stock);
@@ -109,10 +139,21 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), (req, res, next) 
         
         // If image was uploaded, add image information
         if (req.file) {
-            productData.images = [{
-                public_id: req.file.public_id,
-                url: req.file.secure_url
-            }];
+            // Check if it's Cloudinary or local storage
+            if (req.file.secure_url) {
+                // Cloudinary
+                productData.images = [{
+                    public_id: req.file.public_id,
+                    url: req.file.secure_url
+                }];
+            } else {
+                // Local storage
+                const imageUrl = getImageUrl(req, req.file.filename);
+                productData.images = [{
+                    public_id: req.file.filename,
+                    url: imageUrl
+                }];
+            }
         }
         
         console.log('Creating product with data:', productData);
@@ -153,10 +194,21 @@ router.post('/upload-images/:id', isAuthenticatedUser, authorizeRoles('admin'), 
         }
 
         // Add new images to existing images array
-        const newImages = req.files.map(file => ({
-            public_id: file.public_id,
-            url: file.secure_url
-        }));
+        const newImages = req.files.map(file => {
+            if (file.secure_url) {
+                // Cloudinary
+                return {
+                    public_id: file.public_id,
+                    url: file.secure_url
+                };
+            } else {
+                // Local storage
+                return {
+                    public_id: file.filename,
+                    url: getImageUrl(req, file.filename)
+                };
+            }
+        });
 
         product.images = [...product.images, ...newImages];
         await product.save();
@@ -178,6 +230,16 @@ router.post('/upload-images/:id', isAuthenticatedUser, authorizeRoles('admin'), 
 // PUT /products/:id (Admin) - Update a product with optional image
 router.put('/:id', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleImage, async (req, res) => {
     try {
+        console.log('Product update request:', {
+            id: req.params.id,
+            body: req.body,
+            file: req.file ? {
+                filename: req.file.filename,
+                mimetype: req.file.mimetype,
+                size: req.file.size
+            } : 'No file'
+        });
+        
         let product = await Product.findById(req.params.id);
         
         if (!product) {
@@ -196,10 +258,19 @@ router.put('/:id', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleIma
                 await cleanupOldImages(product.images);
             }
             
-            updateData.images = [{
-                public_id: req.file.public_id,
-                url: req.file.secure_url
-            }];
+            if (req.file.secure_url) {
+                // Cloudinary
+                updateData.images = [{
+                    public_id: req.file.public_id,
+                    url: req.file.secure_url
+                }];
+            } else {
+                // Local storage
+                updateData.images = [{
+                    public_id: req.file.filename,
+                    url: getImageUrl(req, req.file.filename)
+                }];
+            }
         }
 
         product = await Product.findByIdAndUpdate(req.params.id, updateData, {
