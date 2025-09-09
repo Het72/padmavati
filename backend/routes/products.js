@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { isAuthenticatedUser, authorizeRoles } = require('../middleware/auth');
-const { uploadSingleImage, uploadMultipleImages } = require('../middleware/upload');
+const { uploadSingleImage, uploadMultipleImages } = require('../middleware/cloudinaryUpload');
 const { cleanupOldImages } = require('../utils/imageUtils');
-const { getImageUrl } = require('../utils/urlHelper');
 const multer = require('multer');
 const path = require('path');
 
@@ -110,10 +109,9 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), (req, res, next) 
         
         // If image was uploaded, add image information
         if (req.file) {
-            const imageUrl = getImageUrl(req, req.file.filename);
             productData.images = [{
-                public_id: req.file.filename,
-                url: imageUrl
+                public_id: req.file.public_id,
+                url: req.file.secure_url
             }];
         }
         
@@ -156,8 +154,8 @@ router.post('/upload-images/:id', isAuthenticatedUser, authorizeRoles('admin'), 
 
         // Add new images to existing images array
         const newImages = req.files.map(file => ({
-            public_id: file.filename,
-            url: getImageUrl(req, file.filename)
+            public_id: file.public_id,
+            url: file.secure_url
         }));
 
         product.images = [...product.images, ...newImages];
@@ -198,10 +196,9 @@ router.put('/:id', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleIma
                 await cleanupOldImages(product.images);
             }
             
-            const imageUrl = getImageUrl(req, req.file.filename);
             updateData.images = [{
-                public_id: req.file.filename,
-                url: imageUrl
+                public_id: req.file.public_id,
+                url: req.file.secure_url
             }];
         }
 
