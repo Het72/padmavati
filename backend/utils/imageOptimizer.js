@@ -76,7 +76,7 @@ async function createImageVariants(inputPath, baseOutputPath) {
  * @param {string} size - Size variant ('thumb', 'medium', 'large')
  */
 function getOptimizedImageUrl(baseUrl, size = 'medium') {
-  if (!baseUrl) return 'https://via.placeholder.com/400x300?text=No+Image';
+  if (!baseUrl) return '';
   
   // If it's already a placeholder or external URL, return as is
   if (baseUrl.includes('via.placeholder.com') || baseUrl.includes('unsplash.com')) {

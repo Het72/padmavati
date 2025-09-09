@@ -567,9 +567,6 @@ const Orders: React.FC = () => {
                                     height: '100%', 
                                     objectFit: 'cover' 
                                   }}
-                                  onError={(e) => {
-                                    e.currentTarget.src = 'https://via.placeholder.com/60x60?text=No+Image';
-                                  }}
                                 />
                               </Box>
                               

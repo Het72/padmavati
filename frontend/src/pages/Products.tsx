@@ -95,9 +95,6 @@ const DesktopProductCard = memo(({
         alt={product.name}
         className="object-cover"
         loading="lazy"
-        onError={(e) => {
-          e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Image+Not+Available';
-        }}
         style={{
           transition: 'opacity 0.3s ease',
           opacity: 1
@@ -298,9 +295,6 @@ const MobileProductCard = memo(({
             backgroundColor: '#2a2a2a'
           }}
           loading="lazy"
-          onError={(e) => {
-            e.currentTarget.src = 'https://via.placeholder.com/300x400/2a2a2a/ffffff?text=No+Image';
-          }}
         />
 
         {/* Cart Counter Badge */}
@@ -557,7 +551,7 @@ const Products: React.FC = () => {
             id: product._id,
             name: product.name,
             price: product.price,
-            image: product.images?.[0]?.url || 'https://via.placeholder.com/400x300?text=No+Image',
+            image: product.images?.[0]?.url || '',
             description: product.description,
             category: product.category,
             stock: product.stock !== undefined && product.stock !== null ? product.stock : 1,
@@ -588,7 +582,7 @@ const Products: React.FC = () => {
           id: product._id,
           name: product.name,
           price: product.price,
-          image: product.images?.[0]?.url || 'https://via.placeholder.com/400x300?text=No+Image',
+          image: product.images?.[0]?.url || '',
           description: product.description,
           category: product.category,
           stock: product.stock !== undefined && product.stock !== null ? product.stock : 1,

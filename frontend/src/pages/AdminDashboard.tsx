@@ -360,7 +360,7 @@ const AdminDashboard: React.FC = () => {
                       <TableRow key={product._id}>
                         <TableCell>
                           <img 
-                            src={product.images?.[0]?.url || 'https://via.placeholder.com/50'} 
+                            src={product.images?.[0]?.url || ''} 
                             alt={product.name}
                             style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 4 }}
                           />
@@ -415,7 +415,7 @@ const AdminDashboard: React.FC = () => {
                       <TableRow key={user._id}>
                         <TableCell>
                           <img 
-                            src={user.avatar?.url || 'https://via.placeholder.com/50'} 
+                            src={user.avatar?.url || ''} 
                             alt={user.name}
                             style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: '50%' }}
                           />
