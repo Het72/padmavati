@@ -142,17 +142,11 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), (req, res, next) 
             // Check if it's Cloudinary or local storage
             if (req.file.secure_url) {
                 // Cloudinary
-                productData.images = [{
-                    public_id: req.file.public_id,
-                    url: req.file.secure_url
-                }];
+                productData.image = req.file.secure_url;
             } else {
                 // Local storage
                 const imageUrl = getImageUrl(req, req.file.filename);
-                productData.images = [{
-                    public_id: req.file.filename,
-                    url: imageUrl
-                }];
+                productData.image = imageUrl;
             }
         }
         
@@ -174,8 +168,8 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), (req, res, next) 
     }
 });
 
-// POST /products/upload-images (Admin) - Upload multiple images for a product
-router.post('/upload-images/:id', isAuthenticatedUser, authorizeRoles('admin'), uploadMultipleImages, async (req, res) => {
+// POST /products/upload-image (Admin) - Update product image
+router.post('/upload-image/:id', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleImage, async (req, res) => {
     try {
         const product = await Product.findById(req.params.id);
         
@@ -186,31 +180,31 @@ router.post('/upload-images/:id', isAuthenticatedUser, authorizeRoles('admin'), 
             });
         }
 
-        if (!req.files || req.files.length === 0) {
+        if (!req.file) {
             return res.status(400).json({
                 success: false,
-                message: 'No images uploaded'
+                message: 'No image uploaded'
             });
         }
 
-        // Add new images to existing images array
-        const newImages = req.files.map(file => {
-            if (file.secure_url) {
-                // Cloudinary
-                return {
-                    public_id: file.public_id,
-                    url: file.secure_url
-                };
-            } else {
-                // Local storage
-                return {
-                    public_id: file.filename,
-                    url: getImageUrl(req, file.filename)
-                };
+        // Clean up old image if it exists
+        if (product.image) {
+            try {
+                await cleanupOldImages([{ url: product.image }]);
+            } catch (cleanupError) {
+                console.error('Error cleaning up old image:', cleanupError);
             }
-        });
+        }
 
-        product.images = [...product.images, ...newImages];
+        // Update with new image
+        if (req.file.secure_url) {
+            // Cloudinary
+            product.image = req.file.secure_url;
+        } else {
+            // Local storage
+            product.image = getImageUrl(req, req.file.filename);
+        }
+
         await product.save();
 
         res.status(200).json({
@@ -251,25 +245,23 @@ router.put('/:id', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleIma
 
         let updateData = { ...req.body };
         
-        // If new image was uploaded, update image information and cleanup old images
+        // If new image was uploaded, update image information
         if (req.file) {
-            // Clean up old images before setting new ones
-            if (product.images && product.images.length > 0) {
-                await cleanupOldImages(product.images);
+            // Clean up old image if it exists
+            if (product.image) {
+                try {
+                    await cleanupOldImages([{ url: product.image }]);
+                } catch (cleanupError) {
+                    console.error('Error cleaning up old image:', cleanupError);
+                }
             }
             
             if (req.file.secure_url) {
                 // Cloudinary
-                updateData.images = [{
-                    public_id: req.file.public_id,
-                    url: req.file.secure_url
-                }];
+                updateData.image = req.file.secure_url;
             } else {
                 // Local storage
-                updateData.images = [{
-                    public_id: req.file.filename,
-                    url: getImageUrl(req, req.file.filename)
-                }];
+                updateData.image = getImageUrl(req, req.file.filename);
             }
         }
 
@@ -305,9 +297,13 @@ router.delete('/:id', isAuthenticatedUser, authorizeRoles('admin'), async (req, 
             });
         }
 
-        // Clean up product images before deleting
-        if (product.images && product.images.length > 0) {
-            await cleanupOldImages(product.images);
+        // Clean up product image before deleting
+        if (product.image) {
+            try {
+                await cleanupOldImages([{ url: product.image }]);
+            } catch (cleanupError) {
+                console.error('Error cleaning up image:', cleanupError);
+            }
         }
 
         await product.deleteOne();
@@ -333,8 +329,12 @@ router.delete('/category/:name', isAuthenticatedUser, authorizeRoles('admin'), a
 
         // Cleanup images for all products in the category
         for (const product of products) {
-            if (product.images && product.images.length > 0) {
-                await cleanupOldImages(product.images);
+            if (product.image) {
+                try {
+                    await cleanupOldImages([{ url: product.image }]);
+                } catch (cleanupError) {
+                    console.error('Error cleaning up image:', cleanupError);
+                }
             }
         }
 

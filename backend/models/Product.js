@@ -31,16 +31,10 @@ const productSchema = new mongoose.Schema({
         min: [0, 'Stock cannot be negative'],
         default: 0
     },
-    images: [{
-        public_id: {
-            type: String,
-            required: true
-        },
-        url: {
-            type: String,
-            required: true
-        }
-    }],
+    image: {
+        type: String,
+        default: ''
+    },
     ratings: {
         type: Number,
         default: 0

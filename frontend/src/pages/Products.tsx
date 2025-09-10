@@ -551,7 +551,7 @@ const Products: React.FC = () => {
             id: product._id,
             name: product.name,
             price: product.price,
-            image: product.images?.[0]?.url || '',
+            image: product.image || '',
             description: product.description,
             category: product.category,
             stock: product.stock !== undefined && product.stock !== null ? product.stock : 1,
@@ -582,7 +582,7 @@ const Products: React.FC = () => {
           id: product._id,
           name: product.name,
           price: product.price,
-          image: product.images?.[0]?.url || '',
+          image: product.image || '',
           description: product.description,
           category: product.category,
           stock: product.stock !== undefined && product.stock !== null ? product.stock : 1,
@@ -806,25 +806,6 @@ const Products: React.FC = () => {
             </Box>
           )}
 
-          {/* Loading Skeleton */}
-          {isLoading && (
-            <Box className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {[...Array(8)].map((_, index) => (
-                <Card key={index} className="h-full">
-                  <Box sx={{ height: 200, backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <CircularProgress size={40} sx={{ color: '#fff' }} />
-                  </Box>
-                  <CardContent>
-                    <Box sx={{ height: 20, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, mb: 2 }} />
-                    <Box sx={{ height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, mb: 1, width: '60%' }} />
-                    <Box sx={{ height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, mb: 2, width: '40%' }} />
-                    <Box sx={{ height: 40, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1 }} />
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-          )}
-
           {/* Error State */}
           {error && !isLoading && (
             <Box className="text-center py-16">
@@ -903,22 +884,50 @@ const Products: React.FC = () => {
                 }
               }}
             />
-            <FormControl sx={{ minWidth: '120px' }}>
+            <FormControl fullWidth>
               <Select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
+                displayEmpty
                 sx={{
                   backgroundColor: '#2a2a2a',
                   borderRadius: '8px',
                   color: 'white',
                   fontSize: '14px',
+                  height: '48px',
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#444' },
                   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#666' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4ade80' }
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4ade80' },
+                  '& .MuiSelect-select': {
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '8px 14px'
+                  }
                 }}
+                renderValue={(selected) => (
+                  <Typography sx={{ color: selected === 'all' ? '#888' : 'white' }}>
+                    {selected === 'all' ? 'Select Category' : selected}
+                  </Typography>
+                )}
               >
                 {categories.map((category) => (
-                  <MenuItem key={category} value={category} sx={{ color: 'white' }}>
+                  <MenuItem 
+                    key={category} 
+                    value={category} 
+                    sx={{ 
+                      color: 'white',
+                      backgroundColor: '#2a2a2a',
+                      '&:hover': {
+                        backgroundColor: '#3a3a3a'
+                      },
+                      '&.Mui-selected': {
+                        backgroundColor: '#4ade80',
+                        '&:hover': {
+                          backgroundColor: '#22c55e'
+                        }
+                      }
+                    }}
+                  >
                     {category === 'all' ? 'All Categories' : category}
                   </MenuItem>
                 ))}
@@ -973,45 +982,18 @@ const Products: React.FC = () => {
         
         {/* Mobile Loading State */}
         {isLoading && (
-          <Box sx={{ padding: '20px', textAlign: 'center' }}>
+          <Box sx={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '50vh',
+            padding: '20px'
+          }}>
             <CircularProgress size={40} sx={{ color: '#4ade80' }} />
             <Typography sx={{ color: '#888', mt: 2, fontSize: '14px' }}>
               Loading products...
             </Typography>
-          </Box>
-        )}
-
-        {/* Mobile Loading Skeleton */}
-        {isLoading && (
-          <Box sx={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(2, 1fr)', 
-            gap: '12px', 
-            padding: '16px' 
-          }}>
-            {[...Array(6)].map((_, index) => (
-              <Box key={index} sx={{ 
-                backgroundColor: '#1a1a1a', 
-                borderRadius: '12px', 
-                overflow: 'hidden' 
-              }}>
-                <Box sx={{ 
-                  aspectRatio: '3/4', 
-                  backgroundColor: '#2a2a2a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <CircularProgress size={24} sx={{ color: '#4ade80' }} />
-                </Box>
-                <Box sx={{ padding: '12px' }}>
-                  <Box sx={{ height: '12px', backgroundColor: '#2a2a2a', borderRadius: '4px', mb: '8px' }} />
-                  <Box sx={{ height: '16px', backgroundColor: '#2a2a2a', borderRadius: '4px', mb: '8px', width: '80%' }} />
-                  <Box sx={{ height: '14px', backgroundColor: '#2a2a2a', borderRadius: '4px', mb: '8px', width: '60%' }} />
-                  <Box sx={{ height: '32px', backgroundColor: '#2a2a2a', borderRadius: '8px' }} />
-                </Box>
-              </Box>
-            ))}
           </Box>
         )}
 
