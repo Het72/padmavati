@@ -3,39 +3,26 @@ const router = express.Router();
 const Product = require('../models/Product');
 const { isAuthenticatedUser, authorizeRoles } = require('../middleware/auth');
 const { cleanupOldImages } = require('../utils/imageUtils');
-const { getImageUrl } = require('../utils/urlHelper');
+const { getImageUrl, addImageUrlToProduct, addImageUrlsToProducts } = require('../utils/imageUrlHelper');
 const multer = require('multer');
 const path = require('path');
 
-// Choose upload middleware based on environment
-let uploadSingleImage, uploadMultipleImages;
-
-try {
-    // Try to use Cloudinary if environment variables are set
-    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
-        const cloudinaryUpload = require('../middleware/cloudinaryUpload');
-        uploadSingleImage = cloudinaryUpload.uploadSingleImage;
-        uploadMultipleImages = cloudinaryUpload.uploadMultipleImages;
-        console.log('✅ Using Cloudinary upload middleware');
-    } else {
-        throw new Error('Cloudinary not configured');
-    }
-} catch (error) {
-    // Fallback to local storage
-    const localUpload = require('../middleware/upload');
-    uploadSingleImage = localUpload.uploadSingleImage;
-    uploadMultipleImages = localUpload.uploadMultipleImages;
-    console.log('⚠️  Using local upload middleware (Cloudinary not configured)');
-}
+// Use MongoDB storage for image uploads
+const mongodbUpload = require('../middleware/mongodbUpload');
+const uploadSingleImage = mongodbUpload.uploadSingleImage;
+const uploadMultipleImages = mongodbUpload.uploadMultipleImages;
+console.log('✅ Using MongoDB upload middleware');
 
 // GET /products - Fetch all products
 router.get('/', async (req, res) => {
     try {
         const products = await Product.find();
+        const productsWithImageUrls = addImageUrlsToProducts(req, products);
+        
         res.status(200).json({
             success: true,
             count: products.length,
-            products
+            products: productsWithImageUrls
         });
     } catch (error) {
         res.status(500).json({
@@ -72,14 +59,54 @@ router.get('/:id', async (req, res) => {
             });
         }
 
+        const productWithImageUrl = addImageUrlToProduct(req, product);
+
         res.status(200).json({
             success: true,
-            product
+            product: productWithImageUrl
         });
     } catch (error) {
         res.status(500).json({
             success: false,
             message: 'Error fetching product',
+            error: error.message
+        });
+    }
+});
+
+// GET /products/:id/image - Serve product image from MongoDB
+router.get('/:id/image', async (req, res) => {
+    try {
+        const product = await Product.findById(req.params.id);
+        
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+
+        if (!product.image || !product.image.data) {
+            return res.status(404).json({
+                success: false,
+                message: 'No image found for this product'
+            });
+        }
+
+        // Set appropriate headers
+        res.set({
+            'Content-Type': product.image.contentType,
+            'Content-Length': product.image.size,
+            'Cache-Control': 'public, max-age=31536000', // Cache for 1 year
+            'ETag': `"${product._id}"`
+        });
+
+        // Send the image data
+        res.send(product.image.data);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching product image',
             error: error.message
         });
     }
@@ -137,26 +164,24 @@ router.post('/', isAuthenticatedUser, authorizeRoles('admin'), (req, res, next) 
             productData.price = parseFloat(productData.price);
         }
         
-        // If image was uploaded, add image information
+        // If image was uploaded, add image information to MongoDB
         if (req.file) {
-            // Check if it's Cloudinary or local storage
-            if (req.file.secure_url) {
-                // Cloudinary
-                productData.image = req.file.secure_url;
-            } else {
-                // Local storage
-                const imageUrl = getImageUrl(req, req.file.filename);
-                productData.image = imageUrl;
-            }
+            productData.image = {
+                data: req.file.buffer,
+                contentType: req.file.mimetype,
+                filename: req.file.originalname,
+                size: req.file.size
+            };
         }
         
         console.log('Creating product with data:', productData);
         const product = await Product.create(productData);
+        const productWithImageUrl = addImageUrlToProduct(req, product);
         
         res.status(201).json({
             success: true,
             message: 'Product created successfully',
-            product
+            product: productWithImageUrl
         });
     } catch (error) {
         console.error('Error creating product:', error);
@@ -187,30 +212,24 @@ router.post('/upload-image/:id', isAuthenticatedUser, authorizeRoles('admin'), u
             });
         }
 
-        // Clean up old image if it exists
-        if (product.image) {
-            try {
-                await cleanupOldImages([{ url: product.image }]);
-            } catch (cleanupError) {
-                console.error('Error cleaning up old image:', cleanupError);
-            }
-        }
+        // Clean up old image if it exists (not needed for MongoDB storage)
+        // Images are automatically replaced when updating
 
         // Update with new image
-        if (req.file.secure_url) {
-            // Cloudinary
-            product.image = req.file.secure_url;
-        } else {
-            // Local storage
-            product.image = getImageUrl(req, req.file.filename);
-        }
+        product.image = {
+            data: req.file.buffer,
+            contentType: req.file.mimetype,
+            filename: req.file.originalname,
+            size: req.file.size
+        };
 
         await product.save();
+        const productWithImageUrl = addImageUrlToProduct(req, product);
 
         res.status(200).json({
             success: true,
             message: 'Images uploaded successfully',
-            product
+            product: productWithImageUrl
         });
     } catch (error) {
         res.status(400).json({
@@ -247,22 +266,13 @@ router.put('/:id', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleIma
         
         // If new image was uploaded, update image information
         if (req.file) {
-            // Clean up old image if it exists
-            if (product.image) {
-                try {
-                    await cleanupOldImages([{ url: product.image }]);
-                } catch (cleanupError) {
-                    console.error('Error cleaning up old image:', cleanupError);
-                }
-            }
-            
-            if (req.file.secure_url) {
-                // Cloudinary
-                updateData.image = req.file.secure_url;
-            } else {
-                // Local storage
-                updateData.image = getImageUrl(req, req.file.filename);
-            }
+            // Update image in MongoDB (old image automatically replaced)
+            updateData.image = {
+                data: req.file.buffer,
+                contentType: req.file.mimetype,
+                filename: req.file.originalname,
+                size: req.file.size
+            };
         }
 
         product = await Product.findByIdAndUpdate(req.params.id, updateData, {
@@ -271,10 +281,12 @@ router.put('/:id', isAuthenticatedUser, authorizeRoles('admin'), uploadSingleIma
             useFindAndModify: false
         });
 
+        const productWithImageUrl = addImageUrlToProduct(req, product);
+
         res.status(200).json({
             success: true,
             message: 'Product updated successfully',
-            product
+            product: productWithImageUrl
         });
     } catch (error) {
         res.status(400).json({
@@ -297,14 +309,8 @@ router.delete('/:id', isAuthenticatedUser, authorizeRoles('admin'), async (req, 
             });
         }
 
-        // Clean up product image before deleting
-        if (product.image) {
-            try {
-                await cleanupOldImages([{ url: product.image }]);
-            } catch (cleanupError) {
-                console.error('Error cleaning up image:', cleanupError);
-            }
-        }
+        // Clean up product image before deleting (not needed for MongoDB storage)
+        // Images are automatically deleted when product is deleted
 
         await product.deleteOne();
 
@@ -327,16 +333,8 @@ router.delete('/category/:name', isAuthenticatedUser, authorizeRoles('admin'), a
         const categoryName = req.params.name;
         const products = await Product.find({ category: categoryName });
 
-        // Cleanup images for all products in the category
-        for (const product of products) {
-            if (product.image) {
-                try {
-                    await cleanupOldImages([{ url: product.image }]);
-                } catch (cleanupError) {
-                    console.error('Error cleaning up image:', cleanupError);
-                }
-            }
-        }
+        // Cleanup images for all products in the category (not needed for MongoDB storage)
+        // Images are automatically deleted when products are deleted
 
         const result = await Product.deleteMany({ category: categoryName });
         res.status(200).json({
@@ -348,6 +346,46 @@ router.delete('/category/:name', isAuthenticatedUser, authorizeRoles('admin'), a
         res.status(500).json({
             success: false,
             message: 'Error deleting category',
+            error: error.message
+        });
+    }
+});
+
+// GET /products/image/:id - Serve product image from MongoDB
+router.get('/image/:id', async (req, res) => {
+    try {
+        const product = await Product.findById(req.params.id);
+        
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: 'Product not found'
+            });
+        }
+        
+        if (!product.image || !product.image.data) {
+            return res.status(404).json({
+                success: false,
+                message: 'No image found for this product'
+            });
+        }
+        
+        // Set appropriate headers
+        res.set({
+            'Content-Type': product.image.contentType,
+            'Content-Length': product.image.data.length,
+            'Cache-Control': 'public, max-age=31536000', // Cache for 1 year
+            'ETag': `"${product._id}"`
+        });
+        
+        // Send the image data
+        res.send(product.image.data);
+        
+    } catch (error) {
+        console.error('Error serving image:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error serving image',
             error: error.message
         });
     }

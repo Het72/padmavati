@@ -32,8 +32,18 @@ const productSchema = new mongoose.Schema({
         default: 0
     },
     image: {
-        type: String,
-        default: ''
+        data: {
+            type: Buffer,
+            default: null
+        },
+        contentType: {
+            type: String,
+            default: ''
+        },
+        filename: {
+            type: String,
+            default: ''
+        }
     },
     ratings: {
         type: Number,
